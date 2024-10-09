@@ -71,10 +71,11 @@ public class Main {
 
             loadAttachments(statement);
 
-            String date = "24-08-14";//"24-07-28";//"24-07-06";//"24-06-07";//"24-05-23";//"24-04-23";//"24-04-10";//"24-03-11";
+            String date = "24-10-09";//"24-08-25";//"24-08-14";//"24-07-28";//"24-07-06";//"24-06-07";//"24-05-23";//"24-04-23";//"24-04-10";//"24-03-11";
             String OUTPUT_DIR = "C:\\Users\\steff\\OneDrive\\PLM\\Aufträge\\Trimble\\" + date + "\\out";
+            String fileName = "241009_134626_exported_TaskData0_22";
 
-            importVario(statement, "C:\\Users\\steff\\OneDrive\\PLM\\Aufträge\\VarioDoc\\24-08-17\\240817_163756_exported_TaskData0_20\\TASKDATA\\TASKDATA.XML");
+            importVario(statement, "C:\\Users\\steff\\OneDrive\\PLM\\Aufträge\\VarioDoc\\" + date + "\\" + fileName + "\\TASKDATA\\TASKDATA.XML");
             //importTrimble(statement, OUTPUT_DIR);
 
             // OLD
@@ -135,6 +136,7 @@ public class Main {
             AttachmentsEntity schneidwerkAttachment = attachments.get("Schneidwerk CR9070");
             AttachmentsEntity mulcherAttachment = attachments.get("Mulcher");
             AttachmentsEntity pflugAttachment = attachments.get("Lemken Variopal");
+            AttachmentsEntity unicornAttachment = attachments.get("Kverneland Unicorn");
             //TODO add unicornAttachment
 
 //
@@ -308,10 +310,12 @@ public class Main {
                                 task.setAttachment(terranoAttachment);
                             if (taskDesc.contains("ernte") || taskDesc.contains("mäh")) task.setAttachment(schneidwerkAttachment);
                             if (taskDesc.contains("mulch")) task.setAttachment(mulcherAttachment);
-                            if (taskDesc.contains("saat") || taskDesc.contains("aussaat") || taskDesc.toLowerCase().contains("aussat") || taskDesc.contains("gerste") || taskDesc.contains("weizen") || taskDesc.contains("raps") || taskDesc.contains("zwfr"))
+                            if (taskDesc.contains("saat") || taskDesc.contains("aussaat") || taskDesc.toLowerCase().contains("aussat") || taskDesc.contains("gerste") || taskDesc.contains("weizen") || taskDesc.contains("raps") || taskDesc.contains("zwfr") || taskDesc.contains("grenze"))
                                 task.setAttachment(prontoAttachment);
                             if (taskDesc.contains("pflug") || taskDesc.contains("pflüg"))
                                 task.setAttachment(pflugAttachment);
+                            if(taskDesc.contains("bepflanzung"))
+                                task.setAttachment(unicornAttachment);
                         }
 
                         if (child.getNodeName().equals("fields")) {
@@ -404,7 +408,7 @@ public class Main {
             HashMap<String, AttachmentsEntity> attachmentMap = new HashMap<>();
 
             NodeList childs = root.getChildNodes();
-            for (int i = childs.getLength() - 1; i > 0; i--) {
+            for (int i = childs.getLength() - 1; i >= 0; i--) {
                 Node node = childs.item(i);
                 String nodeName = node.getNodeName();
                 if (!nodeName.equalsIgnoreCase("#text")) {
@@ -481,10 +485,13 @@ public class Main {
                         for (int j = 0; j < nodeList.getLength(); j++) {
                             Node child = nodeList.item(j);
                             if (child.getNodeName().equalsIgnoreCase("TIM")) {
+                                if(child.getAttributes().getNamedItem("C") == null) continue;
+
                                 long duration = Long.parseLong(child.getAttributes().getNamedItem("C").getNodeValue());
                                 total += duration;
                                 String timeString = child.getAttributes().getNamedItem("A").getNodeValue().replace("T", " ");
                                 LocalDateTime temp = LocalDateTime.parse(timeString, FORMATTER);
+
                                 if (begin == null || begin.isAfter(temp)) begin = temp;
                                 if (end == null || end.isBefore(temp)) end = temp;
                             }
@@ -500,11 +507,12 @@ public class Main {
                         task.setEnd(end);
                         task.setVehiclesId(fendt.getId());
 
+                        System.out.println(task.getDescription());
+
                         saveTask(statement, task);
                     }
                 }
             }
-
         } catch (SQLException | SAXException | IOException | ParserConfigurationException e) {
             throw new RuntimeException(e);
         }
@@ -525,6 +533,7 @@ public class Main {
     private static void saveTask(Statement statement, TasksEntity task) {
         System.out.println(task.getDescription() + " Task field: " + task.getField() + " Field Name: " + task.getField().getName() + ", " + task.getField().getId());
         System.out.println(task.getDescription() + " " + task.getDuration() + ", " + task.getField().getId() + " (" + task.getFieldsId() + ") from " + task.getBegin() + " to " + task.getEnd());
+
         try {
             FieldsEntity fe = task.getField();
             statement.execute("INSERT INTO tasks (fields_id, vehicles_id, attachments_id, description, duration, begin, end) VALUES (" + task.getField().getId() + ", " + task.getVehiclesId() + ", " + task.getAttachment().getId() + ", '" + task.getDescription() + "', " + task.getDuration() + ", '" + task.getBegin() + "', '" + task.getEnd() + "')");
